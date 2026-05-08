@@ -9,6 +9,15 @@ services:
     expose:
       - '6379'
 
+  qdrant:
+    image: 'qdrant/qdrant:v1.17'
+    restart: always
+    container_name: qdrant
+    volumes:
+      - './qdrant_data:/qdrant/storage'
+    expose:
+      - '6333'
+
   mariadb:
     image: 'mariadb:12.2.2-noble'
     restart: always
@@ -21,15 +30,22 @@ services:
       - '3306'
     command: '--max_allowed_packet=268435456'
 
-  qdrant:
-    image: 'qdrant/qdrant:v1.17'
+  phpmyadmin:
+    image: 'phpmyadmin:5.2.3'
     restart: always
-    container_name: qdrant
-    volumes:
-      - './qdrant_data:/qdrant/storage'
-    expose:
-      - '6333'
-      
+    container_name: phpmyadmin
+    env_file:
+      - global_config.env
+    ports:
+      - '16000:80'
+    depends_on:
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      mariadb:
+        condition: service_started
+
   data_streamer:
     build: ./data_streamer
     restart: always
@@ -38,10 +54,12 @@ services:
       - '16001:8000'
     env_file:
       - global_config.env
+    volumes:
+      - './logs:/app/logs'
     depends_on:
-      mariadb:
-        condition: service_started
       redis:
         condition: service_started
       qdrant:
+        condition: service_started
+      mariadb:
         condition: service_started

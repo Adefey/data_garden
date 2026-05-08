@@ -23,20 +23,20 @@ logger = logging.getLogger(__name__)
 
 
 async def _execute_command(command: str, data=None):
-    logger.info(f"Executing command: {command}: start")
+    logger.info(f"Executing command: {command}")
     try:
         async with await connect(**connection_data) as cnx:
             async with await cnx.cursor(dictionary=True) as cursor:
                 await cursor.execute(command, data)
                 if cursor.with_rows:
                     rows = await cursor.fetchall()
-                    logger.info(f"Command: {command}; Output: {rows}")
+                    logger.debug(f"Command: {command}; Output: {rows}")
                     return rows
     except Exception:
         logger.exception(f"Failed to execute command: {command}")
         raise
     finally:
-        logger.info(f"Executing command: {command}: exit")
+        logger.debug(f"Executing command: {command}: Done")
 
 
 async def init_db(sources_list: list[str] = None):
@@ -44,11 +44,10 @@ async def init_db(sources_list: list[str] = None):
         f"CREATE TABLE IF NOT EXISTS `{news_table_name}` ("
         "id INT AUTO_INCREMENT PRIMARY KEY, "
         "news_key VARCHAR(1024) NOT NULL UNIQUE, "
-        "title VARCHAR(512) NOT NULL, "
-        "summary VARCHAR(1024) NOT NULL, "
-        "link VARCHAR(1024) NOT NULL UNIQUE, "
+        "title VARCHAR(1024), "
+        "summary VARCHAR(4096), "
+        "link VARCHAR(2048) UNIQUE, "
         "timedate DATETIME DEFAULT CURRENT_TIMESTAMP, "
-        "text VARCHAR(4096), "
         "language VARCHAR(64)"
         ");"
     )
@@ -56,7 +55,7 @@ async def init_db(sources_list: list[str] = None):
     await _execute_command(
         f"CREATE TABLE IF NOT EXISTS `{sources_table_name}` ("
         "id INT AUTO_INCREMENT PRIMARY KEY, "
-        "link VARCHAR(1024) NOT NULL UNIQUE, "
+        "link VARCHAR(2048) NOT NULL UNIQUE, "
         "is_enabled BOOL DEFAULT TRUE"
         ");"
     )
@@ -76,16 +75,28 @@ async def get_all_sources() -> list[str]:
 
 
 async def add_news_item(
-    key: str, title: str, summary: str, link: str, timedate: datetime = None, text: str = None, language: str = None
+    news_key: str,
+    title: str = None,
+    summary: str = None,
+    link: str = None,
+    timedate: datetime = None,
+    language: str = None,
 ):
-    columns = ["key", "title", "summary", "link"]
-    values = [key, title, summary, link]
+    columns = ["news_key"]
+    values = [news_key]
+
+    if title is not None:
+        columns.append("title")
+        values.append(title)
+    if summary is not None:
+        columns.append("summary")
+        values.append(summary)
+    if link is not None:
+        columns.append("link")
+        values.append(link)
     if timedate is not None:
         columns.append("timedate")
         values.append(timedate)
-    if text is not None:
-        columns.append("text")
-        values.append(text)
     if language is not None:
         columns.append("language")
         values.append(language)
