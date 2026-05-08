@@ -132,6 +132,7 @@ async def stream_news(sources_list: list[str]):
                         "link": link,
                         "timedate": timedate,
                         "language": language,
+                        "cluster_id": 0,
                     }
                     message_for_channel = {key: str(value) for key, value in message_for_channel.items()}
                     message_for_channel = json.dumps(message_for_channel)

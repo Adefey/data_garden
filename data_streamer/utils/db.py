@@ -47,7 +47,8 @@ async def init_db(sources_list: list[str] = None):
         "summary VARCHAR(4096), "
         "link VARCHAR(2048) UNIQUE, "
         "timedate DATETIME DEFAULT CURRENT_TIMESTAMP, "
-        "language VARCHAR(64)"
+        "language VARCHAR(64), "
+        "cluster_id INT DEFAULT 0"
         ");"
     )
 
@@ -116,8 +117,8 @@ async def get_news_item_by_key(key: str) -> dict:
 
 async def get_recent_news_items(count: int):
     select_command = (
-        f"SELECT news_key, title, summary, link, timedate, language FROM `{news_table_name}` ORDER BY timedate DESC"
-        " LIMIT %s;"
+        f"SELECT news_key, title, summary, link, timedate, language, cluster_id FROM `{news_table_name}` ORDER BY"
+        " timedate DESC LIMIT %s;"
     )
     news_items = await _execute_command(select_command, data=(count,))
     if news_items:

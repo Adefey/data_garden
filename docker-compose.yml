@@ -63,3 +63,21 @@ services:
         condition: service_started
       mariadb:
         condition: service_started
+
+  embeddings:
+    build: ./embeddings
+    restart: always
+    container_name: dembeddings
+    ports:
+      - '16002:8001'
+    env_file:
+      - global_config.env
+    volumes:
+      - './logs:/app/logs'
+    depends_on:
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      mariadb:
+        condition: service_started
