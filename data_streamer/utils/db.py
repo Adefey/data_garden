@@ -122,4 +122,4 @@ async def get_recent_news_items(count: int):
     news_items = await _execute_command(select_command, data=(count,))
     if news_items:
         return news_items
-    return None
+    return []
