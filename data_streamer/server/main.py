@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -7,7 +8,7 @@ from datetime import datetime
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from utils.cache import cache
-from utils.db import get_all_sources, init_db
+from utils.db import get_all_sources, get_recent_news_items, init_db
 from utils.news_streamer import stream_news
 
 logging.basicConfig(
@@ -27,6 +28,7 @@ app_version = os.environ.get("APP_VERSION")
 initial_rss_sources = os.environ.get("INITIAL_RSS_SOURCES", "").split(",")
 redis_news_channel = os.environ.get("REDIS_NEWS_CHANNEL")
 start_sleep = float(os.environ.get("START_SLEEP", 5))
+latest_news_count = int(os.environ.get("LATEST_NEWS_COUNT", 50))
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +58,15 @@ async def websocket_news(websocket: WebSocket):
     pubsub = cache.pubsub()
     await pubsub.subscribe(redis_news_channel)
     try:
+        recent_news = await get_recent_news_items(latest_news_count)
+        for item in recent_news:
+            item = {key: str(value) for key, value in item.items()}
+            await websocket.send_text(json.dumps(item))
+
         async for message in pubsub.listen():
             if message["type"] == "message":
-                await websocket.send_text(message["data"])
+                response = message["data"].decode("utf-8")
+                await websocket.send_text(response)
     except WebSocketDisconnect:
         pass
     finally:

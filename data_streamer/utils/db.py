@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _execute_command(command: str, data=None):
-    logger.info(f"Executing command: {command}")
+    logger.debug(f"Executing command: {command}")
     try:
         async with await connect(**connection_data) as cnx:
             async with await cnx.cursor(dictionary=True) as cursor:
@@ -33,7 +33,7 @@ async def _execute_command(command: str, data=None):
                     logger.debug(f"Command: {command}; Output: {rows}")
                     return rows
     except Exception:
-        logger.exception(f"Failed to execute command: {command}")
+        logger.exception(f"Failed to execute command: {command=} {data=}")
     finally:
         logger.debug(f"Executing command: {command}: Done")
 
@@ -111,4 +111,15 @@ async def get_news_item_by_key(key: str) -> dict:
     news_items = await _execute_command(select_command, data=(key,))
     if news_items:
         return news_items[0]
+    return None
+
+
+async def get_recent_news_items(count: int):
+    select_command = (
+        f"SELECT news_key, title, summary, link, timedate, language FROM `{news_table_name}` ORDER BY timedate DESC"
+        " LIMIT %s;"
+    )
+    news_items = await _execute_command(select_command, data=(count,))
+    if news_items:
+        return news_items
     return None

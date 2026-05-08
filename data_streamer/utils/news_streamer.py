@@ -91,6 +91,8 @@ async def stream_news(sources_list: list[str]):
 
                 if new_etag is None:
                     new_etag = ""
+                if isinstance(new_etag, bytes):
+                    new_etag = new_etag.decode("utf-8")
                 if new_modified is None:
                     new_modified = format_datetime(datetime.now(timezone.utc), usegmt=True)
                 await cache.hmset(source, {"etag": new_etag, "modified": new_modified})
@@ -123,13 +125,16 @@ async def stream_news(sources_list: list[str]):
 
                     await add_news_item(key, title, summary, link, timedate, language)
 
-                    message_for_channel = json.dumps({
-                        "key": key,
+                    message_for_channel = {
+                        "news_key": key,
                         "title": title,
                         "summary": summary,
                         "link": link,
-                        "published": str(timedate),
-                    })
+                        "timedate": timedate,
+                        "language": language,
+                    }
+                    message_for_channel = {key: str(value) for key, value in message_for_channel.items()}
+                    message_for_channel = json.dumps(message_for_channel)
                     await cache.publish(
                         redis_news_channel,
                         message=message_for_channel,
@@ -137,7 +142,7 @@ async def stream_news(sources_list: list[str]):
 
             elapsed_time = time.time() - start_time
             logger.info(
-                f"{time.ctime()}: Finish query all {len(sources_list)} RSS in {elapsed_time:.2f} sec, new items:"
+                f"{time.ctime()}: Finish query all {len(sources_list)} RSS in {elapsed_time:.3f} sec, new items:"
                 f" {new_items_count}"
             )
             logger.info(f"Waiting {rss_query_delay_sec} seconds for next iteration")
