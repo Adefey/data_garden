@@ -34,7 +34,6 @@ async def _execute_command(command: str, data=None):
                     return rows
     except Exception:
         logger.exception(f"Failed to execute command: {command}")
-        raise
     finally:
         logger.debug(f"Executing command: {command}: Done")
 

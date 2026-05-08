@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from asyncio import create_task
+from asyncio import create_task, sleep
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -26,15 +26,22 @@ app_description = os.environ.get("APP_DESCRIPTION")
 app_version = os.environ.get("APP_VERSION")
 initial_rss_sources = os.environ.get("INITIAL_RSS_SOURCES", "").split(",")
 redis_news_channel = os.environ.get("REDIS_NEWS_CHANNEL")
+start_sleep = float(os.environ.get("START_SLEEP", 5))
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info(f"Sleeping {start_sleep} seconds before start to allow databases to start")
+    await sleep(start_sleep)
+    logger.info("Starting!")
     await init_db(sources_list=initial_rss_sources)
+    logger.info("Database loaded!")
     all_sources = await get_all_sources()
+    logger.info(f"Sources list arrived! Total {len(all_sources)} entries")
     task = create_task(stream_news(all_sources))
+    logger.info("Async data collection task started!")
     yield
     task.cancel()
 

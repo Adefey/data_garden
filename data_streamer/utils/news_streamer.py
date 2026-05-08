@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import time
@@ -121,9 +122,17 @@ async def stream_news(sources_list: list[str]):
                         language = None
 
                     await add_news_item(key, title, summary, link, timedate, language)
+
+                    message_for_channel = json.dumps({
+                        "key": key,
+                        "title": title,
+                        "summary": summary,
+                        "link": link,
+                        "published": str(timedate),
+                    })
                     await cache.publish(
                         redis_news_channel,
-                        {"key": key, "title": title, "summary": summary, "link": link, "published": str(timedate)},
+                        message=message_for_channel,
                     )
 
             elapsed_time = time.time() - start_time

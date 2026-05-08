@@ -5,3 +5,4 @@ mysql-connector-python==9.7.0
 pydantic==2.13.4
 redis==7.4.0
 uvicorn==0.46.0
+websockets==16.0
