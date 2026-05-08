@@ -1,0 +1,6 @@
+global_config.env
+redis_cache
+mariadb
+qdrant_data
+*__pycache__
+*logs

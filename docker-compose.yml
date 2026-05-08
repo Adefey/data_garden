@@ -1,0 +1,47 @@
+services:
+
+  redis:
+    image: 'redis:8.8-m03-alpine'
+    restart: always
+    container_name: redis
+    volumes:
+      - './redis_cache:/data'
+    expose:
+      - '6379'
+
+  mariadb:
+    image: 'mariadb:12.2.2-noble'
+    restart: always
+    container_name: mariadb
+    volumes:
+      - './mariadb:/var/lib/mysql'
+    env_file:
+      - global_config.env
+    expose:
+      - '3306'
+    command: '--max_allowed_packet=268435456'
+
+  qdrant:
+    image: 'qdrant/qdrant:v1.17'
+    restart: always
+    container_name: qdrant
+    volumes:
+      - './qdrant_data:/qdrant/storage'
+    expose:
+      - '6333'
+      
+  data_streamer:
+    build: ./data_streamer
+    restart: always
+    container_name: data-streamer
+    ports:
+      - '16001:8000'
+    env_file:
+      - global_config.env
+    depends_on:
+      mariadb:
+        condition: service_started
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
