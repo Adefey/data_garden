@@ -302,7 +302,7 @@
           <input
             class="url-input"
             id="urlInput"
-            value="ws://localhost:16001/stream_news"
+            value="ws://127.0.0.1:16001/stream_news"
             placeholder="ws://..."
             title="WebSocket URL, Enter для подключения"
           />
@@ -394,7 +394,7 @@
     <script>
       (function () {
         // --- CONFIG ---
-        const DEFAULT_URL = "ws://localhost:16001/stream_news";
+        const DEFAULT_URL = "ws://127.0.0.1:16001/stream_news";
         const RECONNECT_DELAY = 500;
 
         // --- DOM ---
@@ -680,7 +680,15 @@
           setStatus("connecting");
           updateDebugInfo();
 
+          const connectTimeout = setTimeout(() => {
+            if (ws && ws.readyState === WebSocket.CONNECTING) {
+              console.warn("WebSocket connection timeout, forcing close");
+              ws.close(4000, "Connection timeout");
+            }
+          }, 1000);
+
           ws.onopen = () => {
+            clearTimeout(connectTimeout);
             console.log("WebSocket open:", url);
             setStatus("open");
             closeCodeSpan.textContent = "–";
@@ -702,6 +710,7 @@
           };
 
           ws.onclose = (event) => {
+            clearTimeout(connectTimeout);
             console.log("WebSocket closed:", event.code, event.reason);
             setStatus("closed");
             stopSessionTimer();

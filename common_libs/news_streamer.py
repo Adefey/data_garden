@@ -125,13 +125,11 @@ class NewsStreamer:
         logger.info(f"Started streaming news from {len(self.sources_list)} sources")
         logger.debug(f"{self.sources_list=}")
 
-        async with aiohttp.ClientSession() as session:
-            while True:
-                start_time = time.time()
-                logger.info(
-                    f"{time.ctime()}: Start query all {len(self.sources_list)} RSS requests"
-                )
+        while True:
+            logger.info(f"{time.ctime()}: Start query all {len(self.sources_list)} RSS requests")
+            start_time = time.time()
 
+            async with aiohttp.ClientSession() as session:
                 logger.info("Getting enabled sources from database")
                 all_sources = await db.get_sources()
                 self.sources_list = [source.link for source in all_sources if source.is_enabled]
@@ -163,7 +161,7 @@ class NewsStreamer:
                         logger.error(f"{url}: empty response or exception")
                         continue
                     if status == 304:
-                        logger.error(f"{url}: 304 Not Modified")
+                        logger.warning(f"{url}: 304 Not Modified")
                         continue
                     if status != 200:
                         logger.error(f"{url}: status {status}")
@@ -204,10 +202,10 @@ class NewsStreamer:
                     await cache.publish(redis_news_channel, news_item.model_dump_json())
                 logger.info(f"Finished publishing {len(filtered_news)} new news in RDBMS and Redis")
 
-                elapsed_time = time.time() - start_time
-                logger.info(
-                    f"{time.ctime()}: Finish query all {len(self.sources_list)} RSS in"
-                    f" {elapsed_time:.3f} sec, new items: {len(filtered_news)}"
-                )
-                logger.info(f"Waiting {rss_query_delay_sec} seconds for next iteration")
-                await asyncio.sleep(rss_query_delay_sec)
+            elapsed_time = time.time() - start_time
+            logger.info(
+                f"{time.ctime()}: Finish query all {len(self.sources_list)} RSS in"
+                f" {elapsed_time:.3f} sec, new items: {len(filtered_news)}"
+            )
+            logger.info(f"Waiting {rss_query_delay_sec} seconds for next iteration")
+            await asyncio.sleep(rss_query_delay_sec)

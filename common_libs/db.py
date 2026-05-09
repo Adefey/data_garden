@@ -81,10 +81,12 @@ class Database:
                     [Source(link=source.link, is_enabled=source.is_enabled) for source in sources]
                 )
 
-    async def get_sources(self, limit: int = max_used_sources_count) -> list[NewsSourceModel]:
+    async def get_sources(
+        self, limit: int = max_used_sources_count, offset: int = 0
+    ) -> list[NewsSourceModel]:
         async with self.async_session() as session:
             async with session.begin():
-                sources_select_statement = select(Source).limit(limit)
+                sources_select_statement = select(Source).offset(offset).limit(limit)
                 result = await session.scalars(sources_select_statement)
                 return [
                     NewsSourceModel(id=item.id, link=item.link, is_enabled=item.is_enabled)
@@ -115,12 +117,12 @@ class Database:
                 ])
 
     async def get_latest_news_items(
-        self, limit: int = max_latest_news_count
+        self, limit: int = max_latest_news_count, offset: int = 0
     ) -> list[NewsItemModel]:
         async with self.async_session() as session:
             async with session.begin():
                 news_item_select_statement = (
-                    select(NewsItem).order_by(desc(NewsItem.timedate)).limit(limit)
+                    select(NewsItem).order_by(desc(NewsItem.timedate)).offset(offset).limit(limit)
                 )
                 result = await session.scalars(news_item_select_statement)
                 return [
