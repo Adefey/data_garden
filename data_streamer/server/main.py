@@ -33,9 +33,15 @@ initial_rss_sources = os.environ.get("INITIAL_RSS_SOURCES").split(",")
 redis_news_channel = os.environ.get("REDIS_NEWS_CHANNEL")
 start_sleep = float(os.environ.get("START_SLEEP"))
 redis_host = os.environ.get("REDIS_HOST")
+redis_timeout = float(os.environ.get("REDIS_TIMEOUT"))
 
 logger = logging.getLogger(__name__)
-cache = redis.Redis(host=redis_host)
+cache = redis.Redis(
+    host=redis_host,
+    socket_connect_timeout=redis_timeout,
+    socket_timeout=redis_timeout,
+    retry_on_timeout=True,
+)
 db = Database()
 streamer = NewsStreamer()
 
@@ -56,7 +62,7 @@ async def lifespan(app: FastAPI):
     logger.info("Database loaded!")
     all_sources = await db.get_enabled_sources()
     logger.info(f"Sources list arrived! Total {len(all_sources)} entries")
-    streamer.sources_list = all_sources
+    streamer.sources_list = [source.link for source in all_sources if source.is_enabled]
     task = create_task(streamer.stream_news())
     logger.info("Async data collection task started!")
     yield
@@ -104,4 +110,15 @@ async def websocket_news(websocket: WebSocket):
 
 @app.get("/health")
 async def health():
+    """
+    Health check
+    """
     return {"status": "healthy"}
+
+
+@app.post("/new_sources")
+async def health(sources: list[NewsSourceModel]):
+    """
+    Add new enabled sources. Takes affect on next iteration
+    """
+    streamer.sources_list += [source.link for source in sources if source.is_enabled]

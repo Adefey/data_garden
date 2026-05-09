@@ -20,9 +20,16 @@ rss_user_agent = os.environ.get("RSS_USER_AGENT")
 redis_news_channel = os.environ.get("REDIS_NEWS_CHANNEL")
 parse_timeout = int(os.environ.get("PARSE_TIMEOUT"))
 redis_host = os.environ.get("REDIS_HOST")
+redis_cache_set = os.environ.get("REDIS_CACHE_SET")
+redis_timeout = float(os.environ.get("REDIS_TIMEOUT"))
 
 logger = logging.getLogger(__name__)
-cache = redis.Redis(host=redis_host)
+cache = redis.Redis(
+    host=redis_host,
+    socket_connect_timeout=redis_timeout,
+    socket_timeout=redis_timeout,
+    retry_on_timeout=True,
+)
 db = Database()
 
 
@@ -60,7 +67,9 @@ class NewsStreamer:
             new_etag = ""
         if new_modified is None:
             new_modified = format_datetime(datetime.now(timezone.utc), usegmt=True)
-        await cache.hmset(source, {"etag": new_etag, "modified": new_modified})
+        await cache.hmset(
+            redis_cache_set, {f"{source}-etag": new_etag, f"{source}-modified": new_modified}
+        )
 
     async def extract_rss_info(self, text: str) -> list[NewsItemModel]:
         try:
@@ -124,25 +133,18 @@ class NewsStreamer:
                     f"{time.ctime()}: Start query all {len(self.sources_list)} RSS requests"
                 )
 
-                logger.info(
-                    f"Preparing etag, modified cache for {len(self.sources_list)} RSS sources"
-                )
-                for source in self.sources_list:
-                    source_cache = await cache.hmget(source, keys=["etag", "modified"])
-                    etag = source_cache[0]
-                    modified = source_cache[1]
-                    if not etag and not modified:
-                        await cache.hmset(source, mapping={"etag": "", "modified": ""})
-                logger.info(
-                    f"Prepared etag, modified cache for {len(self.sources_list)} RSS sources"
-                )
-
+                logger.info(f"Preparing tasks for {len(self.sources_list)} sources")
                 fetch_tasks = []
                 for source in self.sources_list:
-                    source_cache = await cache.hmget(source, keys=["etag", "modified"])
-                    etag = source_cache[0]
-                    modified = source_cache[1]
+                    source_cache = await cache.hmget(
+                        source, [f"{source}-etag", f"{source}-modified"]
+                    )
+                    etag = get_safe_string(source_cache[0])
+                    modified = get_safe_string(source_cache[1])
                     fetch_tasks.append(self.fetch_rss_feed(session, source, etag, modified))
+                logger.info(
+                    f"Prepared {len(fetch_tasks)} tasks for {len(self.sources_list)} sources"
+                )
 
                 logger.info(f"Sending {len(fetch_tasks)} fetch RSS requests")
                 fetch_results = await gather_with_limit(*fetch_tasks)
@@ -188,7 +190,7 @@ class NewsStreamer:
                     [item.news_key for item in total_processed_news]
                 )
                 filtered_news = [
-                    item for item in total_processed_news if item.news_key in existing_keys
+                    item for item in total_processed_news if item.news_key not in existing_keys
                 ]
                 logger.info(f"Finished {len(filtered_news)} databases update jobs")
 
@@ -201,7 +203,7 @@ class NewsStreamer:
                 elapsed_time = time.time() - start_time
                 logger.info(
                     f"{time.ctime()}: Finish query all {len(self.sources_list)} RSS in"
-                    f" {elapsed_time:.3f} sec, new items: {len(total_processed_news)}"
+                    f" {elapsed_time:.3f} sec, new items: {len(filtered_news)}"
                 )
                 logger.info(f"Waiting {rss_query_delay_sec} seconds for next iteration")
                 await asyncio.sleep(rss_query_delay_sec)

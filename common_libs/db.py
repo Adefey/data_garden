@@ -17,6 +17,12 @@ news_table_name = os.environ.get("NEWS_TABLE_NAME")
 sources_table_name = os.environ.get("SOURCES_TABLE_NAME")
 max_latest_news_count = int(os.environ.get("MAX_LATEST_NEWS_COUNT"))
 max_used_sources_count = int(os.environ.get("MAX_USED_SOURCES_COUNT"))
+db_debug_logging = os.environ.get("DB_DEBUG_LOGGING", "False").lower in (
+    "true",
+    "1",
+    "t",
+    "enabled",
+)
 
 
 class Base(DeclarativeBase):
@@ -50,7 +56,7 @@ class Database:
 
     def __init__(self):
         self.url = f"{database_dialect}://{mariadb_user}:{mariadb_password}@{mariadb_host}:{mariadb_port}/{mariadb_database}"
-        self.engine = create_async_engine(self.url, echo=True)
+        self.engine = create_async_engine(self.url, echo=db_debug_logging)
         self.async_session = async_sessionmaker(
             self.engine, class_=AsyncSession, expire_on_commit=False
         )
