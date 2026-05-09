@@ -12,7 +12,9 @@ logging.basicConfig(
     format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s: %(message)s",
     datefmt="%H:%M:%S",
     handlers=[
-        logging.FileHandler(filename=f'./logs/embeddings_{datetime.now().strftime("%y_%m_%d_%H:%M:%S")}.log'),
+        logging.FileHandler(
+            filename=f'./logs/embeddings_{datetime.now().strftime("%y_%m_%d_%H:%M:%S")}.log'
+        ),
         logging.StreamHandler(stream=sys.stdout),
     ],
 )
@@ -34,7 +36,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title=app_name, summary=app_summary, description=app_description, version=app_version, lifespan=lifespan)
+app = FastAPI(
+    title=app_name,
+    summary=app_summary,
+    description=app_description,
+    version=app_version,
+    lifespan=lifespan,
+)
 
 
 @app.get("/health")

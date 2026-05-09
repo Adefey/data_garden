@@ -2,7 +2,9 @@ FROM python:3.14-alpine
 
 WORKDIR /app
 
-COPY . .
+COPY ./common_libs ./common_libs
+
+COPY ./embeddings .
 
 RUN pip install -r requirements.txt
 

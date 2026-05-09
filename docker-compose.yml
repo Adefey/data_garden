@@ -47,7 +47,9 @@ services:
         condition: service_started
 
   data_streamer:
-    build: ./data_streamer
+    build:
+      context: .
+      dockerfile: ./data_streamer/Dockerfile
     restart: always
     container_name: data-streamer
     ports:
@@ -65,7 +67,9 @@ services:
         condition: service_started
 
   embeddings:
-    build: ./embeddings
+    build:
+      context: .
+      dockerfile: ./embeddings/Dockerfile
     restart: always
     container_name: dembeddings
     ports:
