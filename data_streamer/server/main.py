@@ -60,9 +60,6 @@ async def lifespan(app: FastAPI):
             ]
         )
     logger.info("Database loaded!")
-    all_sources = await db.get_enabled_sources()
-    logger.info(f"Sources list arrived! Total {len(all_sources)} entries")
-    streamer.sources_list = [source.link for source in all_sources if source.is_enabled]
     task = create_task(streamer.stream_news())
     logger.info("Async data collection task started!")
     yield
@@ -116,9 +113,25 @@ async def health():
     return {"status": "healthy"}
 
 
-@app.post("/new_sources")
-async def health(sources: list[NewsSourceModel]):
+@app.post("/sources")
+async def post_sources(sources: list[NewsSourceModel]):
     """
-    Add new enabled sources. Takes affect on next iteration
+    Add sources. Takes affect on next iteration
     """
-    streamer.sources_list += [source.link for source in sources if source.is_enabled]
+    await db.add_sources(sources)
+
+
+@app.delete("/sources")
+async def delete_sources(sources: list[NewsSourceModel]):
+    """
+    Delete sources that are sent by link. Takes affect on next iteration
+    """
+    await db.delete_sources(sources)
+
+
+@app.get("/sources", response_model=list[NewsSourceModel])
+async def get_sources():
+    """
+    Remove sources that are sent. Takes affect on next iteration
+    """
+    return await db.get_sources()

@@ -63,8 +63,7 @@ class NewsStreamer:
             return None, None, None, None
 
     async def update_source(self, source: str, new_etag: str, new_modified: str):
-        if new_etag is None:
-            new_etag = ""
+        new_etag = get_safe_string(new_etag)
         if new_modified is None:
             new_modified = format_datetime(datetime.now(timezone.utc), usegmt=True)
         await cache.hmset(
@@ -133,11 +132,16 @@ class NewsStreamer:
                     f"{time.ctime()}: Start query all {len(self.sources_list)} RSS requests"
                 )
 
+                logger.info("Getting enabled sources from database")
+                all_sources = await db.get_sources()
+                self.sources_list = [source.link for source in all_sources if source.is_enabled]
+                logger.info(f"Got {len(self.sources_list)} sources from database")
+
                 logger.info(f"Preparing tasks for {len(self.sources_list)} sources")
                 fetch_tasks = []
                 for source in self.sources_list:
                     source_cache = await cache.hmget(
-                        source, [f"{source}-etag", f"{source}-modified"]
+                        redis_cache_set, [f"{source}-etag", f"{source}-modified"]
                     )
                     etag = get_safe_string(source_cache[0])
                     modified = get_safe_string(source_cache[1])

@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, desc, func, select
+from sqlalchemy import DateTime, String, delete, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -17,7 +17,7 @@ news_table_name = os.environ.get("NEWS_TABLE_NAME")
 sources_table_name = os.environ.get("SOURCES_TABLE_NAME")
 max_latest_news_count = int(os.environ.get("MAX_LATEST_NEWS_COUNT"))
 max_used_sources_count = int(os.environ.get("MAX_USED_SOURCES_COUNT"))
-db_debug_logging = os.environ.get("DB_DEBUG_LOGGING", "False").lower in (
+db_debug_logging = os.environ.get("DB_DEBUG_LOGGING", "False").lower() in (
     "true",
     "1",
     "t",
@@ -81,19 +81,22 @@ class Database:
                     [Source(link=source.link, is_enabled=source.is_enabled) for source in sources]
                 )
 
-    async def get_enabled_sources(
-        self, limit: int = max_used_sources_count
-    ) -> list[NewsSourceModel]:
+    async def get_sources(self, limit: int = max_used_sources_count) -> list[NewsSourceModel]:
         async with self.async_session() as session:
             async with session.begin():
-                sources_select_statement = (
-                    select(Source).where(Source.is_enabled == True).limit(limit)
-                )
+                sources_select_statement = select(Source).limit(limit)
                 result = await session.scalars(sources_select_statement)
                 return [
                     NewsSourceModel(id=item.id, link=item.link, is_enabled=item.is_enabled)
                     for item in result
                 ]
+
+    async def delete_sources(self, sources: list[NewsSourceModel]):
+        links = [item.link for item in sources]
+        async with self.async_session() as session:
+            async with session.begin():
+                sources_delete_statement = delete(Source).where(Source.link.in_(links))
+                await session.execute(sources_delete_statement)
 
     async def add_news_items(self, news_items: list[NewsItemModel]):
         async with self.async_session() as session:
@@ -137,10 +140,10 @@ class Database:
     async def news_key_exists(self, news_key: str) -> bool:
         async with self.async_session() as session:
             async with session.begin():
-                result = await session.scalars(
-                    select(func.count()).where(NewsItem.news_key == news_key)
+                result = await session.scalar(
+                    select(func.count(NewsItem.id)).where(NewsItem.news_key == news_key)
                 )
-                return bool(result.all())
+                return result > 0
 
     async def news_keys_exist(self, keys: list[str]) -> list[str]:
         if not keys:
