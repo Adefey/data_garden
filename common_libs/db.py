@@ -1,11 +1,15 @@
+import asyncio
+import logging
 import os
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, delete, desc, func, select
+from sqlalchemy import DateTime, String, bindparam, delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from common_libs.models import NewsItemModel, NewsSourceModel
+
+logger = logging.getLogger(__name__)
 
 mariadb_host = os.environ.get("MARIADB_HOST")
 mariadb_port = os.environ.get("MARIADB_PORT")
@@ -23,6 +27,9 @@ db_debug_logging = os.environ.get("DB_DEBUG_LOGGING", "False").lower() in (
     "t",
     "enabled",
 )
+
+mariadb_reconnect_wait = int(os.environ.get("MARIADB_RECONNECT_WAIT"))
+mariadb_reconnect_retries = int(os.environ.get("MARIADB_RECONNECT_RETRIES"))
 
 
 class Base(DeclarativeBase):
@@ -62,95 +69,159 @@ class Database:
         )
 
     async def prepare_tables(self):
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        for attempt in range(1, mariadb_reconnect_retries + 1):
+            try:
+                async with self.engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.create_all)
+                logger.info("Tables created successfully")
+                return
+            except Exception as exc:
+                logger.warning(f"Attempt {attempt}/{mariadb_reconnect_retries} failed: {exc}")
+                if attempt == mariadb_reconnect_retries:
+                    logger.error("All retries exhausted, tables were not created")
+                    raise
+                await asyncio.sleep(mariadb_reconnect_wait)
 
     async def tables_empty(self):
-        async with self.async_session() as session:
-            async with session.begin():
-                news_count_statement = select(func.count(NewsItem.id))
-                sources_count_statement = select(func.count(Source.id))
-                news_count = await session.scalar(news_count_statement)
-                sources_count = await session.scalar(sources_count_statement)
-                return news_count == sources_count == 0
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    news_count_statement = select(func.count(NewsItem.id))
+                    sources_count_statement = select(func.count(Source.id))
+                    news_count = await session.scalar(news_count_statement)
+                    sources_count = await session.scalar(sources_count_statement)
+                    return news_count == sources_count == 0
+        except Exception as exc:
+            logger.error(f"Exception in tables_empty: {exc}")
+            return True
 
     async def add_sources(self, sources: list[NewsSourceModel]):
-        async with self.async_session() as session:
-            async with session.begin():
-                session.add_all(
-                    [Source(link=source.link, is_enabled=source.is_enabled) for source in sources]
-                )
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    session.add_all([
+                        Source(link=source.link, is_enabled=source.is_enabled) for source in sources
+                    ])
+        except Exception as exc:
+            logger.error(f"Exception in add_sources: {exc}")
 
     async def get_sources(
         self, limit: int = max_used_sources_count, offset: int = 0
     ) -> list[NewsSourceModel]:
-        async with self.async_session() as session:
-            async with session.begin():
-                sources_select_statement = select(Source).offset(offset).limit(limit)
-                result = await session.scalars(sources_select_statement)
-                return [
-                    NewsSourceModel(id=item.id, link=item.link, is_enabled=item.is_enabled)
-                    for item in result
-                ]
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    sources_select_statement = select(Source).offset(offset).limit(limit)
+                    result = await session.scalars(sources_select_statement)
+                    return [
+                        NewsSourceModel(id=item.id, link=item.link, is_enabled=item.is_enabled)
+                        for item in result
+                    ]
+        except Exception as exc:
+            logger.error(f"Exception in get_sources: {exc}")
+            return []
 
     async def delete_sources(self, sources: list[NewsSourceModel]):
         links = [item.link for item in sources]
-        async with self.async_session() as session:
-            async with session.begin():
-                sources_delete_statement = delete(Source).where(Source.link.in_(links))
-                await session.execute(sources_delete_statement)
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    sources_delete_statement = delete(Source).where(Source.link.in_(links))
+                    await session.execute(sources_delete_statement)
+        except Exception as exc:
+            logger.error(f"Exception in delete_sources: {exc}")
 
     async def add_news_items(self, news_items: list[NewsItemModel]):
-        async with self.async_session() as session:
-            async with session.begin():
-                session.add_all([
-                    NewsItem(
-                        news_key=news_item.news_key,
-                        title=news_item.title,
-                        summary=news_item.summary,
-                        link=news_item.link,
-                        timedate=news_item.timedate,
-                        language=news_item.language,
-                        cluster_id=news_item.cluster_id,
-                    )
-                    for news_item in news_items
-                ])
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    session.add_all([
+                        NewsItem(
+                            news_key=news_item.news_key,
+                            title=news_item.title,
+                            summary=news_item.summary,
+                            link=news_item.link,
+                            timedate=news_item.timedate,
+                            language=news_item.language,
+                            cluster_id=news_item.cluster_id,
+                        )
+                        for news_item in news_items
+                    ])
+        except Exception as exc:
+            logger.error(f"Exception in add_news_items: {exc}")
 
     async def get_latest_news_items(
         self, limit: int = max_latest_news_count, offset: int = 0
     ) -> list[NewsItemModel]:
-        async with self.async_session() as session:
-            async with session.begin():
-                news_item_select_statement = (
-                    select(NewsItem).order_by(desc(NewsItem.timedate)).offset(offset).limit(limit)
-                )
-                result = await session.scalars(news_item_select_statement)
-                return [
-                    NewsItemModel(
-                        id=item.id,
-                        news_key=item.news_key,
-                        title=item.title,
-                        summary=item.summary,
-                        link=item.link,
-                        timedate=item.timedate,
-                        language=item.language,
-                        cluster_id=item.cluster_id,
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    news_item_select_statement = (
+                        select(NewsItem)
+                        .order_by(desc(NewsItem.timedate))
+                        .offset(offset)
+                        .limit(limit)
                     )
-                    for item in result
-                ]
+                    result = await session.scalars(news_item_select_statement)
+                    return [
+                        NewsItemModel(
+                            id=item.id,
+                            news_key=item.news_key,
+                            title=item.title,
+                            summary=item.summary,
+                            link=item.link,
+                            timedate=item.timedate,
+                            language=item.language,
+                            cluster_id=item.cluster_id,
+                        )
+                        for item in result
+                    ]
+        except Exception as exc:
+            logger.error(f"Exception in get_latest_news_items: {exc}")
+            return []
 
     async def news_key_exists(self, news_key: str) -> bool:
-        async with self.async_session() as session:
-            async with session.begin():
-                result = await session.scalar(
-                    select(func.count(NewsItem.id)).where(NewsItem.news_key == news_key)
-                )
-                return result > 0
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    result = await session.scalar(
+                        select(func.count(NewsItem.id)).where(NewsItem.news_key == news_key)
+                    )
+                    return result > 0
+        except Exception as exc:
+            logger.error(f"Exception in news_key_exists: {exc}")
+            return False
 
     async def news_keys_exist(self, keys: list[str]) -> list[str]:
         if not keys:
             return []
-        keys_select_statement = select(NewsItem.news_key).where(NewsItem.news_key.in_(keys))
-        async with self.async_session() as session:
-            result = await session.execute(keys_select_statement)
-            return result.scalars().all()
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    keys_select_statement = select(NewsItem.news_key).where(
+                        NewsItem.news_key.in_(keys)
+                    )
+                    result = await session.execute(keys_select_statement)
+                    return result.scalars().all()
+        except Exception as exc:
+            logger.error(f"Exception in news_keys_exist: {exc}")
+            return []
+
+    async def set_cluster_ids_by_news_items_ids(
+        self, news_id_to_cluster_id_mapping: dict[int, int]
+    ):
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    update_cluster_ids_statement = (
+                        update(NewsItem)
+                        .where(NewsItem.id == bindparam("id"))
+                        .values(cluster_id=bindparam("cluster_id"))
+                    )
+                    update_data = [
+                        {"id": news_item_id, "cluster_id": cluster_id}
+                        for news_item_id, cluster_id in news_id_to_cluster_id_mapping.items()
+                    ]
+                    await session.execute(update_cluster_ids_statement, update_data)
+        except Exception as exc:
+            logger.error(f"Exception in set_cluster_ids_by_news_items_ids: {exc}")
