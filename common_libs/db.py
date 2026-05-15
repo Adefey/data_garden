@@ -226,7 +226,7 @@ class Database:
             return []
 
     async def set_cluster_ids_by_news_items_ids(
-        self, news_id_to_cluster_id_mapping: list[tuple[str, int]]
+        self, news_id_to_cluster_id_mapping: dict[str, int]
     ):
         if not news_id_to_cluster_id_mapping:
             return

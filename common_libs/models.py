@@ -14,7 +14,8 @@ class NewsItemModel(BaseModel):
     cluster_id: int | None = Field(default=None)
 
     def get_text_value(self) -> str:
-        return f"{self.title} : {self.summary}"
+        parts = [self.title, self.summary]
+        return " : ".join(part for part in parts if part)
 
 
 class NewsSourceModel(BaseModel):

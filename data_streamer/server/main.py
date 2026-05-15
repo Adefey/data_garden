@@ -138,7 +138,7 @@ async def websocket_processed_news(websocket: WebSocket):
         except WebSocketDisconnect:
             pass
         finally:
-            await pubsub.unsubscribe(redis_news_channel)
+            await pubsub.unsubscribe(redis_processed_news_channel)
             logger.info("Websocket stream_processed_news - closed connection")
 
 

@@ -23,6 +23,8 @@ class DBStream:
         )
 
     def predict_clusters(self, embeddings: list[list[float]]) -> list[int]:
+        if not embeddings:
+            return []
         try:
             for x, _ in stream.iter_array(embeddings):
                 self.dbstream.learn_one(x)

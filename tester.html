@@ -435,7 +435,7 @@
         let reconnectCount = 0;
         let totalBytes = 0;
         let lastMessageTimestamps = []; // массив Date для расчёта среднего интервала
-        const MAX_INTERVAL_HISTORY = 10; // сколько последних интервалов учитываем
+        const MAX_INTERVAL_HISTORY = 100000; // сколько последних интервалов учитываем
 
         // --- Helpers ---
         function formatTime(date) {

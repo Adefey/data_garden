@@ -33,6 +33,8 @@ class VectorDB:
             )
 
     async def upload_points(self, points_data: dict[str, list[float]]):
+        if not points_data:
+            return
         try:
             points = [
                 PointStruct(
@@ -58,6 +60,7 @@ class VectorDB:
             result = result.points
         except Exception as exc:
             logger.error(f"Failed to search for points: {repr(exc)}")
+            return []
 
-        news_and_scores = [(item.id, item.score) for item in result]
+        news_and_scores = [(item.payload["news_key"], item.score) for item in result]
         return news_and_scores
