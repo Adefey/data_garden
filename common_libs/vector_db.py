@@ -1,7 +1,7 @@
 import logging
 import os
 
-from qdrant_client import QdrantClient
+from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
 qdrant_collection_name = os.environ.get("QDRANT_COLLECTION_NAME")
@@ -16,12 +16,14 @@ logger = logging.getLogger(__name__)
 class VectorDB:
 
     def __init__(self):
-        self.qdrant = QdrantClient(host=qdrant_host, port=qdrant_port)
-        if not self.qdrant.collection_exists(qdrant_collection_name):
+        self.qdrant = AsyncQdrantClient(host=qdrant_host, port=qdrant_port)
+
+    async def prepare_table(self):
+        if not await self.qdrant.collection_exists(qdrant_collection_name):
             logger.info(
                 f"Creating db {qdrant_collection_name} with embedding size {embeddings_size}"
             )
-            self.qdrant.create_collection(
+            await self.qdrant.create_collection(
                 collection_name=qdrant_collection_name,
                 vectors_config=VectorParams(
                     size=embeddings_size,
@@ -29,9 +31,9 @@ class VectorDB:
                 ),
             )
 
-    def upload_points(self, points_data: dict[str, list[float]]):
+    async def upload_points(self, points_data: dict[str, list[float]]):
         try:
-            self.qdrant.upload_points(
+            await self.qdrant.upload_points(
                 qdrant_collection_name,
                 points=[
                     PointStruct(
@@ -44,11 +46,11 @@ class VectorDB:
         except Exception as exc:
             logger.error(f"Failed to upload {len(points_data)} points: {repr(exc)}")
 
-    def search_similar(
+    async def search_similar(
         self, embedding: list[float], limit: int = max_search_count
     ) -> list[tuple[str, float]]:
         try:
-            result = self.qdrant.query_points(
+            result = await self.qdrant.query_points(
                 collection_name=qdrant_collection_name,
                 query=embedding,
                 limit=limit,

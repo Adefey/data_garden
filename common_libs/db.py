@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, bindparam, delete, desc, func, select, update
+from sqlalchemy import DateTime, String, bindparam, delete, desc, func, null, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -151,17 +151,27 @@ class Database:
             logger.error(f"Exception in add_news_items: {exc}")
 
     async def get_latest_news_items(
-        self, limit: int = max_latest_news_count, offset: int = 0
+        self,
+        limit: int = max_latest_news_count,
+        offset: int = 0,
+        with_empty_cluster_id: bool = False,
     ) -> list[NewsItemModel]:
         try:
             async with self.async_session() as session:
                 async with session.begin():
+                    news_item_select_statement = select(NewsItem)
+
+                    if with_empty_cluster_id:
+                        news_item_select_statement = news_item_select_statement.where(
+                            NewsItem.cluster_id == null
+                        )
+
                     news_item_select_statement = (
-                        select(NewsItem)
-                        .order_by(desc(NewsItem.timedate))
+                        news_item_select_statement.order_by(desc(NewsItem.timedate))
                         .offset(offset)
                         .limit(limit)
                     )
+
                     result = await session.scalars(news_item_select_statement)
                     return [
                         NewsItemModel(

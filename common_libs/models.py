@@ -13,6 +13,9 @@ class NewsItemModel(BaseModel):
     language: str | None = Field(default=None)
     cluster_id: int | None = Field(default=None)
 
+    def get_text_value(self) -> str:
+        return f"{self.title} : {self.summary}"
+
 
 class NewsSourceModel(BaseModel):
     id: int = Field(default=0)

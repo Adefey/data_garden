@@ -1,11 +1,14 @@
 import logging
 import os
 import sys
-from asyncio import sleep
+from asyncio import create_task, sleep
 from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI
+
+from common_libs.news_clustering import NewsClustering
+from common_libs.vector_db import VectorDB
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +29,8 @@ app_version = os.environ.get("APP_VERSION")
 start_sleep = float(os.environ.get("START_SLEEP", 5))
 
 logger = logging.getLogger(__name__)
+news_clustering = NewsClustering()
+vector_db = VectorDB()
 
 
 @asynccontextmanager
@@ -33,7 +38,13 @@ async def lifespan(app: FastAPI):
     logger.info(f"Sleeping {start_sleep} seconds before start to allow databases to start")
     await sleep(start_sleep)
     logger.info("Starting!")
+    await vector_db.prepare_table()
+    logger.info("Vector database loaded!")
+    task = create_task(news_clustering.cluster_news())
+    logger.info("Async data clustering task started!")
     yield
+    logger.info("Cancelling task")
+    task.cancel()
 
 
 app = FastAPI(
