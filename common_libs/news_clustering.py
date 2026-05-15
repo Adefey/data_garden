@@ -92,7 +92,9 @@ class NewsClustering:
 
             logger.info(f"Start update database with {len(cluster_ids)} cluster IDs")
             await db.set_cluster_ids_by_news_items_ids(cluster_id_mapping)
-            logger.info(f"Completed update database with {len(cluster_ids)} cluster IDs")
+            logger.info(
+                f"Completed update database with {len(cluster_ids)} cluster IDs: {cluster_ids}"
+            )
 
             embedding_mapping = {
                 news_item.news_key: embedding

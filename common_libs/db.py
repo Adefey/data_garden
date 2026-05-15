@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, bindparam, delete, desc, func, select, update
+from sqlalchemy import DateTime, String, delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -218,23 +218,19 @@ class Database:
             return []
 
     async def set_cluster_ids_by_news_items_ids(
-        self, news_id_to_cluster_id_mapping: dict[int, int]
+        self, news_id_to_cluster_id_mapping: dict[str, int]
     ):
         if not news_id_to_cluster_id_mapping:
             return
         try:
             async with self.async_session() as session:
                 async with session.begin():
-                    update_cluster_ids_statement = (
-                        update(NewsItem)
-                        .where(NewsItem.id == bindparam("id"))
-                        .values(cluster_id=bindparam("cluster_id"))
-                        .execution_options(synchronize_session=False)
-                    )
-                    update_data = [
-                        {"id": news_item_id, "cluster_id": cluster_id}
-                        for news_item_id, cluster_id in news_id_to_cluster_id_mapping.items()
-                    ]
-                    await session.execute(update_cluster_ids_statement, update_data)
+                    for news_key, cluster_id in news_id_to_cluster_id_mapping.items():
+                        update_statement = (
+                            update(NewsItem)
+                            .where(NewsItem.news_key == news_key)
+                            .values(cluster_id=cluster_id)
+                        )
+                        await session.execute(update_statement)
         except Exception as exc:
             logger.error(f"Exception in set_cluster_ids_by_news_items_ids: {exc}")
