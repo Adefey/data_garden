@@ -10,7 +10,7 @@ import feedparser
 import redis.asyncio as redis
 
 from common_libs.async_utils import gather_with_limit
-from common_libs.content_utils import get_safe_string
+from common_libs.content_utils import get_clear_string, get_safe_string
 from common_libs.db import Database
 from common_libs.models import NewsItemModel
 
@@ -80,21 +80,21 @@ class NewsStreamer:
             return []
 
         if feed is None or feed.bozo:
-            logger.error(f"parsing error: {feed.bozo=} ({text[:25]=})")
+            logger.error(f"parsing error: {feed.bozo=} ({text[:35]=})")
             return []
 
         parsed_items = []
 
         for entry in feed.entries:
 
-            entry_id = get_safe_string(entry.get("id"))
-            entry_link = get_safe_string(entry.get("link"))
-            entry_published = get_safe_string(entry.get("published"))
+            entry_id = get_clear_string(entry.get("id"))
+            entry_link = get_clear_string(entry.get("link"))
+            entry_published = get_clear_string(entry.get("published"))
 
             key = f"{entry_id}:{entry_link}:{entry_published}"
 
-            entry_title = get_safe_string(entry.get("title"))
-            entry_summary = get_safe_string(entry.get("summary"))
+            entry_title = get_clear_string(entry.get("title"))
+            entry_summary = get_clear_string(entry.get("summary"))
 
             published_parsed = entry.get("published_parsed")
             if published_parsed:
@@ -104,7 +104,7 @@ class NewsStreamer:
 
             summary_detail = entry.get("summary_detail")
             if summary_detail:
-                entry_language = get_safe_string(summary_detail.get("language"))
+                entry_language = get_clear_string(summary_detail.get("language"))
             else:
                 entry_language = None
 
