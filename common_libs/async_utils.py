@@ -18,3 +18,11 @@ async def gather_with_limit(*coros, max_coros: int = max_parallel_coros):
             return await coro
 
     return await asyncio.gather(*(sem_coro(coro) for coro in coros))
+
+
+def handle_exception(loop, context):
+    msg = context.get("message", "No message")
+    exc = context.get("exception", None)
+    logger.error(f"Asyncio exception: {msg}")
+    if exc:
+        logger.exception(exc)

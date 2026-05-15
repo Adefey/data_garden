@@ -1,8 +1,11 @@
+import logging
 import os
 
 import torch
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
+
+logger = logging.getLogger(__name__)
 
 checkpoint = os.environ.get("EMBEDDINGS_MODEL")
 
@@ -27,6 +30,9 @@ class EmbeddingModel:
         elif isinstance(inputs, list):
             texts.extend(inputs)
 
+        if texts == []:
+            return []
+
         encoded_input = self.tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
 
         with torch.no_grad():
@@ -37,8 +43,8 @@ class EmbeddingModel:
         sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
 
         if isinstance(inputs, str):
-            return sentence_embeddings[0]
+            return sentence_embeddings[0].tolist()
         elif isinstance(inputs, list):
-            return sentence_embeddings
+            return [emb.tolist() for emb in sentence_embeddings]
         else:
             return None

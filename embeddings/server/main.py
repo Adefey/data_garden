@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import sys
@@ -7,6 +8,7 @@ from datetime import datetime
 
 from fastapi import FastAPI
 
+from common_libs.async_utils import handle_exception
 from common_libs.news_clustering import NewsClustering
 from common_libs.vector_db import VectorDB
 
@@ -38,6 +40,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"Sleeping {start_sleep} seconds before start to allow databases to start")
     await sleep(start_sleep)
     logger.info("Starting!")
+    loop = asyncio.get_running_loop()
+    loop.set_exception_handler(handle_exception)
+    logger.info("Exception handling for background tasks enabled!")
     await vector_db.prepare_table()
     logger.info("Vector database loaded!")
     task = create_task(news_clustering.cluster_news())

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import sys
@@ -9,6 +10,7 @@ import redis.asyncio as redis
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
+from common_libs.async_utils import handle_exception
 from common_libs.db import Database
 from common_libs.models import NewsItemModel, NewsSourceModel
 from common_libs.news_streamer import NewsStreamer
@@ -55,6 +57,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"Sleeping {start_sleep} seconds before start to allow databases to start")
     await sleep(start_sleep)
     logger.info("Starting!")
+    loop = asyncio.get_running_loop()
+    loop.set_exception_handler(handle_exception)
+    logger.info("Exception handling for background tasks enabled!")
     await db.prepare_tables()
     if await db.tables_empty():
         await db.add_sources(

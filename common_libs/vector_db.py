@@ -40,7 +40,7 @@ class VectorDB:
                         id=news_id,
                         vector=embedding,
                     )
-                    for news_id, embedding in points_data
+                    for news_id, embedding in points_data.items()
                 ],
             )
         except Exception as exc:
@@ -54,7 +54,8 @@ class VectorDB:
                 collection_name=qdrant_collection_name,
                 query=embedding,
                 limit=limit,
-            ).points
+            )
+            result = result.points
         except Exception as exc:
             logger.error(f"Failed to search for points: {repr(exc)}")
 

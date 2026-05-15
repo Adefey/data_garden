@@ -18,7 +18,7 @@ rss_query_timeout_sec = int(os.environ.get("RSS_QUERY_TIMEOUT_SEC"))
 rss_query_delay_sec = int(os.environ.get("RSS_QUERY_DELAY_SEC"))
 rss_user_agent = os.environ.get("RSS_USER_AGENT")
 redis_news_channel = os.environ.get("REDIS_NEWS_CHANNEL")
-parse_timeout = int(os.environ.get("PARSE_TIMEOUT"))
+compute_timeout = int(os.environ.get("COMPUTE_TIMEOUT"))
 redis_host = os.environ.get("REDIS_HOST")
 redis_cache_set = os.environ.get("REDIS_CACHE_SET")
 redis_timeout = float(os.environ.get("REDIS_TIMEOUT"))
@@ -73,10 +73,10 @@ class NewsStreamer:
     async def extract_rss_info(self, text: str) -> list[NewsItemModel]:
         try:
             feed = await asyncio.wait_for(
-                asyncio.to_thread(feedparser.parse, text), timeout=parse_timeout
+                asyncio.to_thread(feedparser.parse, text), timeout=compute_timeout
             )
         except TimeoutError:
-            logger.error(f"Parsing timed out after {parse_timeout}s, text length: {len(text)}")
+            logger.error(f"Parsing timed out after {compute_timeout}s, text length: {len(text)}")
             return []
 
         if feed is None or feed.bozo:
@@ -207,5 +207,6 @@ class NewsStreamer:
                 f"{time.ctime()}: Finish query all {len(self.sources_list)} RSS in"
                 f" {elapsed_time:.3f} sec, new items: {len(filtered_news)}"
             )
+
             logger.info(f"Waiting {rss_query_delay_sec} seconds for next iteration")
             await asyncio.sleep(rss_query_delay_sec)

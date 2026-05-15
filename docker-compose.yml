@@ -15,8 +15,8 @@ services:
     container_name: qdrant
     volumes:
       - './qdrant_data:/qdrant/storage'
-    expose:
-      - '6333'
+    ports:
+      - '6333:6333'
 
   mariadb:
     image: 'mariadb:12.2.2-noble'
