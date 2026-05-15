@@ -229,6 +229,7 @@ class Database:
                         update(NewsItem)
                         .where(NewsItem.id == bindparam("id"))
                         .values(cluster_id=bindparam("cluster_id"))
+                        .execution_options(synchronize_session=False)
                     )
                     update_data = [
                         {"id": news_item_id, "cluster_id": cluster_id}

@@ -85,18 +85,23 @@ class NewsClustering:
                 )
                 continue
 
-            mapping = {
+            cluster_id_mapping = {
                 news_item.news_key: cluster_id
                 for news_item, cluster_id in zip(news_items, cluster_ids)
             }
 
             logger.info(f"Start update database with {len(cluster_ids)} cluster IDs")
-            await db.set_cluster_ids_by_news_items_ids(mapping)
+            await db.set_cluster_ids_by_news_items_ids(cluster_id_mapping)
             logger.info(f"Completed update database with {len(cluster_ids)} cluster IDs")
 
-            logger.info(f"Start update vector database with {len(cluster_ids)} cluster IDs")
-            await vector_db.upload_points(mapping)
-            logger.info(f"Completed update vector database with {len(cluster_ids)} cluster IDs")
+            embedding_mapping = {
+                news_item.news_key: embedding
+                for news_item, embedding in zip(news_items, embeddings)
+            }
+
+            logger.info(f"Start update vector database with {len(embeddings)} embeddings")
+            await vector_db.upload_points(embedding_mapping)
+            logger.info(f"Completed update vector database with {len(embeddings)} embeddings")
 
             elapsed_time = time.time() - start_time
             logger.info(
