@@ -110,11 +110,11 @@ class NewsStreamer:
 
             news_item = NewsItemModel(
                 news_key=key,
-                title=entry_title,
-                summary=entry_summary,
+                title=entry_title if entry_title else None,
+                summary=entry_summary if entry_summary else None,
                 link=entry_link,
                 timedate=entry_timedate,
-                language=entry_language,
+                language=entry_language if entry_language else None,
             )
 
             parsed_items.append(news_item)

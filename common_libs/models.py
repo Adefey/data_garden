@@ -6,12 +6,12 @@ from pydantic import BaseModel, Field
 class NewsItemModel(BaseModel):
     id: int = Field(default=0)
     news_key: str
-    title: str | None
-    summary: str | None
+    title: str | None = Field(default=None)
+    summary: str | None = Field(default=None)
     link: str
     timedate: datetime
-    language: str | None
-    cluster_id: int = Field(default=0)
+    language: str | None = Field(default=None)
+    cluster_id: int | None = Field(default=None)
 
 
 class NewsSourceModel(BaseModel):

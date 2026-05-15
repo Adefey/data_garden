@@ -48,7 +48,7 @@ class NewsItem(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     language: Mapped[str] = mapped_column(String(64), nullable=True)
-    cluster_id: Mapped[int] = mapped_column(default=0, nullable=False)
+    cluster_id: Mapped[int] = mapped_column(nullable=True)
 
 
 class Source(Base):
