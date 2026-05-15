@@ -34,16 +34,15 @@ class VectorDB:
 
     async def upload_points(self, points_data: dict[str, list[float]]):
         try:
-            await self.qdrant.upload_points(
-                qdrant_collection_name,
-                points=[
-                    PointStruct(
-                        id=str(uuid.uuid5(uuid.NAMESPACE_URL, news_id)),
-                        vector=embedding,
-                    )
-                    for news_id, embedding in points_data.items()
-                ],
-            )
+            points = [
+                PointStruct(
+                    id=str(uuid.uuid5(uuid.NAMESPACE_URL, news_key)),
+                    vector=embedding,
+                    payload={"news_key": news_key},
+                )
+                for news_key, embedding in points_data.items()
+            ]
+            await self.qdrant.upsert(collection_name=qdrant_collection_name, points=points)
         except Exception as exc:
             logger.error(f"Failed to upload {len(points_data)} points: {repr(exc)}")
 

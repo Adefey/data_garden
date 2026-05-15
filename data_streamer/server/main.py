@@ -35,6 +35,7 @@ initial_rss_sources = [
     s.strip() for s in os.environ.get("INITIAL_RSS_SOURCES", "").split(",") if s.strip()
 ]
 redis_news_channel = os.environ.get("REDIS_NEWS_CHANNEL")
+redis_processed_news_channel = os.environ.get("REDIS_PROCESSED_NEWS_CHANNEL")
 start_sleep = float(os.environ.get("START_SLEEP"))
 redis_host = os.environ.get("REDIS_HOST")
 redis_timeout = float(os.environ.get("REDIS_TIMEOUT"))
@@ -87,12 +88,12 @@ app = FastAPI(
 
 @app.websocket("/stream_news")
 async def websocket_news(websocket: WebSocket):
-    logger.info("Websocket - new connection")
+    logger.info("Websocket stream_news - new connection")
     await websocket.accept()
     async with cache.pubsub() as pubsub:
         await pubsub.subscribe(redis_news_channel)
         try:
-            recent_news = await db.get_latest_news_items(limit=max_latest_news_count)
+            recent_news = await db.get_news_items(limit=max_latest_news_count)
             for item in recent_news:
                 await websocket.send_text(item.model_dump_json())
 
@@ -112,7 +113,33 @@ async def websocket_news(websocket: WebSocket):
             pass
         finally:
             await pubsub.unsubscribe(redis_news_channel)
-            logger.info("Websocket - closed connection")
+            logger.info("Websocket stream_news - closed connection")
+
+
+@app.websocket("/stream_processed_news")
+async def websocket_processed_news(websocket: WebSocket):
+    logger.info("Websocket stream_processed_news - new connection")
+    await websocket.accept()
+    async with cache.pubsub() as pubsub:
+        await pubsub.subscribe(redis_processed_news_channel)
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    news_item_json = message["data"].decode("utf-8")
+                    # Verify that model can be assempled with the data
+                    try:
+                        NewsItemModel.model_validate_json(news_item_json)
+                        await websocket.send_text(news_item_json)
+                    except ValidationError as e:
+                        logger.error(
+                            "Channel returned invalid data that does not pass validation:"
+                            f" {repr(e)=} {news_item_json=}"
+                        )
+        except WebSocketDisconnect:
+            pass
+        finally:
+            await pubsub.unsubscribe(redis_news_channel)
+            logger.info("Websocket stream_processed_news - closed connection")
 
 
 @app.get("/health")
@@ -152,4 +179,4 @@ async def get_news(limit: int = max_latest_news_count, offset: int = 0):
     """
     Return news
     """
-    return await db.get_latest_news_items(limit, offset)
+    return await db.get_news_items(limit, offset)

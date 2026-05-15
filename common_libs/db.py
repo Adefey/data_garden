@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, delete, desc, func, select, update
+from sqlalchemy import DateTime, String, asc, delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -150,11 +150,12 @@ class Database:
         except Exception as exc:
             logger.error(f"Exception in add_news_items: {exc}")
 
-    async def get_latest_news_items(
+    async def get_news_items(
         self,
         limit: int = max_latest_news_count,
         offset: int = 0,
         with_empty_cluster_id: bool = False,
+        newest_first: bool = True,
     ) -> list[NewsItemModel]:
         try:
             async with self.async_session() as session:
@@ -166,10 +167,17 @@ class Database:
                             NewsItem.cluster_id.is_(None)
                         )
 
-                    news_item_select_statement = (
-                        news_item_select_statement.order_by(desc(NewsItem.timedate))
-                        .offset(offset)
-                        .limit(limit)
+                    if newest_first:
+                        news_item_select_statement = news_item_select_statement.order_by(
+                            desc(NewsItem.timedate)
+                        )
+                    else:
+                        news_item_select_statement = news_item_select_statement.order_by(
+                            asc(NewsItem.timedate)
+                        )
+
+                    news_item_select_statement = news_item_select_statement.offset(offset).limit(
+                        limit
                     )
 
                     result = await session.scalars(news_item_select_statement)
@@ -187,7 +195,7 @@ class Database:
                         for item in result
                     ]
         except Exception as exc:
-            logger.error(f"Exception in get_latest_news_items: {exc}")
+            logger.error(f"Exception in get_news_items: {exc}")
             return []
 
     async def news_key_exists(self, news_key: str) -> bool:
@@ -218,7 +226,7 @@ class Database:
             return []
 
     async def set_cluster_ids_by_news_items_ids(
-        self, news_id_to_cluster_id_mapping: dict[str, int]
+        self, news_id_to_cluster_id_mapping: list[tuple[str, int]]
     ):
         if not news_id_to_cluster_id_mapping:
             return

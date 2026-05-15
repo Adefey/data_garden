@@ -3,6 +3,8 @@ import logging
 import os
 import time
 
+import redis.asyncio as redis
+
 from common_libs.db import Database
 from common_libs.embeddings import EmbeddingModel
 from common_libs.streaming_clusterization import DBStream
@@ -11,9 +13,19 @@ from common_libs.vector_db import VectorDB
 logger = logging.getLogger(__name__)
 
 compute_timeout = int(os.environ.get("COMPUTE_TIMEOUT"))
+redis_processed_news_channel = os.environ.get("REDIS_PROCESSED_NEWS_CHANNEL")
 clustering_delay_sec = float(os.environ.get("CLUSTERING_DELAY_SEC"))
 clustering_batch_size = int(os.environ.get("CLUSTERING_BATCH_SIZE"))
+redis_host = os.environ.get("REDIS_HOST")
+redis_cache_set = os.environ.get("REDIS_CACHE_SET")
+redis_timeout = float(os.environ.get("REDIS_TIMEOUT"))
 
+cache = redis.Redis(
+    host=redis_host,
+    socket_connect_timeout=redis_timeout,
+    socket_timeout=redis_timeout,
+    retry_on_timeout=True,
+)
 db = Database()
 dbstream = DBStream()
 embeddings_model = EmbeddingModel()
@@ -55,11 +67,13 @@ class NewsClustering:
             logger.info(f"{time.ctime()}: Start query database for news without cluster ID")
             start_time = time.time()
 
-            logger.info("Start getting news without cluster ID from database")
-            news_items = await db.get_latest_news_items(
-                limit=clustering_batch_size, with_empty_cluster_id=True
+            logger.info("Start getting oldest news without cluster ID from database")
+            news_items = await db.get_news_items(
+                limit=clustering_batch_size, with_empty_cluster_id=True, newest_first=False
             )
-            logger.info(f"Finished getting {len(news_items)} news without cluster ID from database")
+            logger.info(
+                f"Finished getting oldest {len(news_items)} news without cluster ID from database"
+            )
 
             texts = [item.get_text_value() for item in news_items]
 
@@ -104,6 +118,14 @@ class NewsClustering:
             logger.info(f"Start update vector database with {len(embeddings)} embeddings")
             await vector_db.upload_points(embedding_mapping)
             logger.info(f"Completed update vector database with {len(embeddings)} embeddings")
+
+            for news_item, cluster_id in zip(news_items, cluster_ids):
+                news_item.cluster_id = cluster_id
+
+            logger.info(f"Starting publishing {len(news_items)} processed news in Redis")
+            for news_item in news_items:
+                await cache.publish(redis_processed_news_channel, news_item.model_dump_json())
+            logger.info(f"Finished publishing {len(news_items)} processed news in Redis")
 
             elapsed_time = time.time() - start_time
             logger.info(

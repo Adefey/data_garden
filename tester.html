@@ -302,7 +302,7 @@
           <input
             class="url-input"
             id="urlInput"
-            value="ws://127.0.0.1:16001/stream_news"
+            value="ws://127.0.0.1:16001/stream_processed_news"
             placeholder="ws://..."
             title="WebSocket URL, Enter для подключения"
           />
@@ -394,7 +394,7 @@
     <script>
       (function () {
         // --- CONFIG ---
-        const DEFAULT_URL = "ws://127.0.0.1:16001/stream_news";
+        const DEFAULT_URL = "ws://127.0.0.1:16001/stream_processed_news";
         const RECONNECT_DELAY = 500;
 
         // --- DOM ---
