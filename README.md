@@ -9,3 +9,5 @@
 ### 2. Embeddings
 - Hosts embedding model for feature extraction from news
 - Uses DBSTREAM for news clusterization
+
+![Image](https://w0.peakpx.com/wallpaper/610/986/HD-wallpaper-anime-magus-tale-cecile-abesentia.jpg)
