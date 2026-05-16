@@ -3,6 +3,9 @@
 ## Microservices
 
 ### 1. Data streamer
-- Returns unique text news using Websocket
-- Operates on list of RSS sources (files in folder)
-- Uses Redis as cache to avoid diplucates
+- Gathers news from RSS channels
+- Provides 2 websockets: for instant news without any clustering and same news but with cluster_id
+
+### 2. Embeddings
+- Hosts embedding model for feature extraction from news
+- Uses DBSTREAM for news clusterization
