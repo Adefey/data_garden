@@ -246,3 +246,42 @@ class Database:
                         await session.execute(update_statement)
         except Exception as exc:
             logger.error(f"Exception in set_cluster_ids_by_news_items_ids: {exc}")
+
+    async def get_news_by_news_keys(
+        self,
+        news_keys: list[str],
+    ) -> list[NewsItemModel]:
+        if not news_keys:
+            return []
+
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    news_item_select_statement = select(NewsItem).where(
+                        NewsItem.news_key.in_(news_keys)
+                    )
+
+                    result = await session.scalars(news_item_select_statement)
+
+                    news_items = [
+                        NewsItemModel(
+                            id=item.id,
+                            news_key=item.news_key,
+                            title=item.title,
+                            summary=item.summary,
+                            link=item.link,
+                            timedate=item.timedate,
+                            language=item.language,
+                            cluster_id=item.cluster_id,
+                        )
+                        for item in result
+                    ]
+
+                    # Preserve order
+                    key_to_item = {item.news_key: item for item in news_items}
+                    news_items = [key_to_item[key] for key in news_keys]
+
+                    return news_items
+        except Exception as exc:
+            logger.error(f"Exception in get_news_items: {exc}")
+            return []

@@ -715,7 +715,7 @@
       function openClusterModal(id) {
         const cluster = state.clusters.get(id);
         if (!cluster) return;
-        modalDetails.innerHTML = `<h2 style="color:var(--accent);margin-bottom:16px;">CLST:${cluster.id} – ${cluster.name}</h2>
+        modalDetails.innerHTML = `<h2 style="color:var(--accent);margin-bottom:16px;">CLUSTER:${cluster.id} – ${cluster.name}</h2>
                 ${cluster.news
                   .map(
                     (n) => `<div class="modal-news-item">
@@ -772,7 +772,9 @@
       // ---------- SOURCES ----------
       async function fetchSources() {
         try {
-          const r = await fetch(`${CONFIG.API_BASE_URL}/sources?limit=200`);
+          const r = await fetch(
+            `${CONFIG.API_BASE_URL}/sources?limit=${CONFIG.INITIAL_PROCESSED_LIMIT}`,
+          );
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           renderSources(await r.json());
         } catch (e) {
@@ -915,7 +917,10 @@
           );
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const data = await resp.json();
-          data.forEach((item) => addProcessedNews(item));
+          data
+            .slice()
+            .reverse()
+            .forEach((item) => addProcessedNews(item));
           renderClusters();
           renderArchive();
         } catch (e) {

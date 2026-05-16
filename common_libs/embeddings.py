@@ -8,6 +8,7 @@ from transformers import AutoModel, AutoTokenizer
 logger = logging.getLogger(__name__)
 
 checkpoint = os.environ.get("EMBEDDINGS_MODEL")
+prefix_for_feature_extraction = os.environ.get("PREFIX_FOR_FEATURE_EXTRACTION")
 
 
 class EmbeddingModel:
@@ -23,12 +24,10 @@ class EmbeddingModel:
         )
 
     def get_embeds(self, inputs: str | list[str]) -> list[float] | list[list[float]]:
-        texts = []
-
         if isinstance(inputs, str):
-            texts.append(inputs)
+            texts = [prefix_for_feature_extraction + inputs]
         elif isinstance(inputs, list):
-            texts.extend(inputs)
+            texts = [prefix_for_feature_extraction + t for t in inputs]
 
         if texts == []:
             return []

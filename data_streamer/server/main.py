@@ -191,3 +191,4 @@ async def get_news(
     Return news
     """
     return await db.get_news_items(limit, offset, with_empty_cluster_id, newest_first)
+
