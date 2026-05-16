@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Garden</title>
+    <style>
+      :root {
+        --bg: #0c0c0c;
+        --panel: #1a1a1a;
+        --border: #2a2a2a;
+        --text: #cccccc;
+        --dim: #888888;
+        --accent: #ff7f00;
+        --green: #00cc66;
+        --red: #ff4444;
+        --yellow: #ffcc00;
+        --font: "Courier New", Courier, monospace;
+        --ticker-height: 36px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        font-size: 13px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      #ticker-container {
+        height: var(--ticker-height);
+        background: #000;
+        border-bottom: 1px solid #333;
+        overflow: hidden;
+        position: relative;
+        flex-shrink: 0;
+      }
+      #ticker-track {
+        position: absolute;
+        white-space: nowrap;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        color: var(--accent);
+        font-weight: bold;
+        will-change: transform;
+      }
+      .ticker-item {
+        margin-right: 40px;
+        display: inline-block;
+      }
+      .ticker-separator {
+        margin: 0 15px;
+        color: #555;
+      }
+
+      #main-layout {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .sidebar {
+        width: 300px;
+        background: var(--panel);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+      }
+      #sidebar-right {
+        border-right: none;
+        border-left: 1px solid var(--border);
+      }
+
+      #app-title {
+        font-size: 22px;
+        font-weight: bold;
+        color: var(--accent);
+        text-align: center;
+        padding: 16px 8px;
+        letter-spacing: 4px;
+        border-bottom: 1px solid var(--border);
+        text-shadow: 0 0 10px rgba(255, 127, 0, 0.5);
+        flex-shrink: 0;
+      }
+
+      .scroll-panel {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .fixed-panel {
+        flex-shrink: 0;
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .panel h2 {
+        font-size: 14px;
+        color: var(--accent);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 4px;
+      }
+
+      .source-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        font-size: 12px;
+        word-break: break-all;
+      }
+      .source-url {
+        flex: 1;
+        margin-right: 8px;
+        color: var(--text);
+      }
+      .enabled-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        margin-right: 8px;
+        flex-shrink: 0;
+      }
+      .enabled-dot.disabled {
+        background: #555;
+      }
+      .delete-source-btn {
+        background: none;
+        border: none;
+        color: var(--red);
+        cursor: pointer;
+        font-family: var(--font);
+        font-size: 16px;
+        padding: 0 4px;
+        transition: transform 0.1s;
+      }
+      .delete-source-btn:active {
+        transform: scale(0.9);
+      }
+      .add-source {
+        margin-top: 10px;
+        display: flex;
+        gap: 5px;
+      }
+      .add-source input {
+        flex: 1;
+        background: #000;
+        border: 1px solid #444;
+        color: var(--text);
+        padding: 6px 8px;
+        font-family: var(--font);
+        font-size: 12px;
+      }
+      .add-source button,
+      #reconnect-btn {
+        background: var(--accent);
+        border: none;
+        color: #000;
+        font-weight: bold;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-family: var(--font);
+        text-transform: uppercase;
+        font-size: 11px;
+        transition:
+          transform 0.1s,
+          background-color 0.1s;
+      }
+      .add-source button:active,
+      #reconnect-btn:active {
+        transform: scale(0.95);
+        background: #cc6600;
+      }
+      .conn-setting {
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .conn-setting label {
+        display: block;
+        font-size: 11px;
+        color: #aaa;
+        margin-bottom: 2px;
+        flex: 1;
+      }
+      .conn-setting input {
+        flex: 2;
+        background: #000;
+        border: 1px solid #444;
+        color: var(--text);
+        padding: 5px;
+        font-family: var(--font);
+        font-size: 12px;
+      }
+      .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--red);
+        flex-shrink: 0;
+      }
+      .status-indicator.connected {
+        background: var(--green);
+      }
+      .status-indicator.connecting {
+        background: var(--yellow);
+      }
+
+      #clusters-dashboard {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+        grid-auto-rows: minmax(200px, auto);
+        gap: 12px;
+        align-content: start;
+      }
+
+      .cluster-card {
+        background: #121212;
+        border: 1px solid #2a2a2a;
+        border-radius: 2px;
+        padding: 10px;
+        cursor: pointer;
+        transition:
+          border-color 0.3s,
+          box-shadow 0.3s;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .cluster-card:hover {
+        border-color: var(--accent);
+        box-shadow: 0 0 12px rgba(255, 127, 0, 0.15);
+      }
+      .cluster-card.flash-update {
+        animation: flashGreen 0.4s ease-out;
+      }
+      @keyframes flashGreen {
+        0% {
+          border-color: var(--green);
+          box-shadow: 0 0 20px rgba(0, 204, 102, 0.4);
+        }
+        100% {
+          border-color: #2a2a2a;
+          box-shadow: none;
+        }
+      }
+      .cluster-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 6px;
+        border-bottom: 1px solid #222;
+        padding-bottom: 4px;
+        flex-shrink: 0;
+      }
+      .cluster-symbol {
+        color: var(--accent);
+        font-weight: bold;
+        font-size: 15px;
+        text-transform: uppercase;
+      }
+      .cluster-count {
+        background: #222;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+      }
+      .cluster-news-list {
+        list-style: none;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .cluster-news-item {
+        font-size: 12px;
+        margin-bottom: 3px;
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        border-bottom: 1px solid #1a1a1a;
+        padding-bottom: 2px;
+      }
+      .news-time {
+        color: #777;
+        white-space: nowrap;
+        font-size: 11px;
+      }
+      .news-title {
+        color: #ddd;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .news-title a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .news-title a:hover {
+        color: var(--accent);
+      }
+
+      /* Archive panel */
+      #archive-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        padding: 12px;
+      }
+      #archive-container {
+        flex: 1;
+        overflow-y: auto;
+      }
+      #archive-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      #archive-table th {
+        text-align: left;
+        color: var(--accent);
+        padding: 4px 2px;
+        border-bottom: 1px solid #333;
+        position: sticky;
+        top: 0;
+        background: var(--panel);
+      }
+      #archive-table td {
+        padding: 3px 2px;
+        border-bottom: 1px solid #1f1f1f;
+        vertical-align: top;
+      }
+      .archive-link {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .archive-link:hover {
+        text-decoration: underline;
+      }
+
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .modal.hidden {
+        display: none;
+      }
+      .modal-content {
+        background: #1a1a1a;
+        border: 1px solid var(--accent);
+        width: 70%;
+        max-height: 80%;
+        overflow-y: auto;
+        padding: 20px;
+        position: relative;
+      }
+      .close-btn {
+        position: absolute;
+        top: 8px;
+        right: 16px;
+        font-size: 24px;
+        color: #aaa;
+        cursor: pointer;
+        transition: transform 0.1s;
+      }
+      .close-btn:active {
+        transform: scale(0.9);
+      }
+      .modal-news-item {
+        margin-bottom: 12px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 8px;
+      }
+      .modal-news-title {
+        font-size: 14px;
+        margin-bottom: 4px;
+      }
+      .modal-news-meta {
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 4px;
+      }
+      .modal-news-summary {
+        font-size: 12px;
+        color: #bbb;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ticker-container">
+      <div id="ticker-track"></div>
+    </div>
+
+    <div id="main-layout">
+      <aside class="sidebar" id="sidebar-left">
+        <div id="app-title">DATA GARDEN</div>
+        <div class="scroll-panel panel" id="sources-section">
+          <h2>RSS Sources</h2>
+          <div id="sources-list">Loading...</div>
+          <div class="add-source">
+            <input
+              type="text"
+              id="new-source-url"
+              placeholder="https://example.com/rss"
+            />
+            <button id="add-source-btn">Add</button>
+          </div>
+        </div>
+        <div class="fixed-panel panel" id="connection-section">
+          <h2>Connection</h2>
+          <div class="conn-setting">
+            <label>WS Raw</label>
+            <input type="text" id="ws-news-input" />
+            <span class="status-indicator" id="ws-news-status"></span>
+          </div>
+          <div class="conn-setting">
+            <label>WS Processed</label>
+            <input type="text" id="ws-processed-input" />
+            <span class="status-indicator" id="ws-processed-status"></span>
+          </div>
+          <div class="conn-setting">
+            <label>API Base</label>
+            <input type="text" id="api-base-input" />
+            <span class="status-indicator" style="visibility: hidden"></span>
+          </div>
+          <button id="reconnect-btn">Reconnect</button>
+        </div>
+      </aside>
+
+      <main id="clusters-dashboard"></main>
+
+      <aside class="sidebar" id="sidebar-right">
+        <div class="panel" id="archive-panel">
+          <h2>Archive</h2>
+          <div id="archive-container">
+            <table id="archive-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Title</th>
+                  <th>Cluster</th>
+                  <th>Link</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div id="cluster-modal" class="modal hidden">
+      <div class="modal-content">
+        <span class="close-btn" id="modal-close">&times;</span>
+        <div id="modal-details"></div>
+      </div>
+    </div>
+
+    <script>
+      const CONFIG = {
+        WS_NEWS_URL: "ws://127.0.0.1:16001/stream_news",
+        WS_PROCESSED_URL: "ws://127.0.0.1:16001/stream_processed_news",
+        API_BASE_URL: "http://127.0.0.1:16001",
+        TICKER_MAX_ITEMS: 50,
+        CLUSTER_CARD_PREVIEW_COUNT: 20,
+        CLUSTER_INTERNAL_MAX: 200,
+        ARCHIVE_MAX_ROWS: 500,
+        INITIAL_PROCESSED_LIMIT: 200,
+        RECONNECT_DELAY: 3000,
+        TICKER_SPEED: 0.8,
+      };
+
+      const state = {
+        rawNewsQueue: [],
+        clusters: new Map(),
+        archiveRows: [],
+        processedKeys: new Set(),
+        newsProcessingQueue: [],
+        processingActive: false,
+        initialLoadComplete: false,
+        tickerOffset: 0,
+        animationFrameId: null,
+        wsNews: null,
+        wsProcessed: null,
+        reconnectTimers: {},
+      };
+
+      const tickerTrack = document.getElementById("ticker-track");
+      const clustersDashboard = document.getElementById("clusters-dashboard");
+      const sourcesListDiv = document.getElementById("sources-list");
+      const newSourceInput = document.getElementById("new-source-url");
+      const addSourceBtn = document.getElementById("add-source-btn");
+      const wsNewsInput = document.getElementById("ws-news-input");
+      const wsProcessedInput = document.getElementById("ws-processed-input");
+      const apiBaseInput = document.getElementById("api-base-input");
+      const reconnectBtn = document.getElementById("reconnect-btn");
+      const wsNewsStatus = document.getElementById("ws-news-status");
+      const wsProcessedStatus = document.getElementById("ws-processed-status");
+      const archiveTableBody = document.querySelector("#archive-table tbody");
+      const modal = document.getElementById("cluster-modal");
+      const modalClose = document.getElementById("modal-close");
+      const modalDetails = document.getElementById("modal-details");
+
+      function formatTimeShort(iso) {
+        const d = new Date(iso);
+        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      }
+      function formatTimeFull(iso) {
+        return new Date(iso).toLocaleString();
+      }
+      function truncate(str, len = 60) {
+        if (!str) return "";
+        return str.length > len ? str.substring(0, len) + "…" : str;
+      }
+
+      // ---------- TICKER (dynamic DOM, single pass) ----------
+      function createTickerElement(item) {
+        return `<span class="ticker-item">${truncate(item.title, 80)}</span><span class="ticker-separator">|</span>`;
+      }
+
+      function appendTickerElement(item) {
+        tickerTrack.insertAdjacentHTML("beforeend", createTickerElement(item));
+      }
+
+      function resetTicker() {
+        tickerTrack.innerHTML = "";
+        if (state.rawNewsQueue.length === 0) {
+          appendTickerElement({
+            title: "Waiting for news...",
+            news_key: "__waiting__",
+          });
+        } else {
+          state.rawNewsQueue.forEach((item) => appendTickerElement(item));
+        }
+        const container = document.getElementById("ticker-container");
+        state.tickerOffset = container ? container.clientWidth : 0;
+      }
+
+      function addToTicker(item) {
+        if (state.rawNewsQueue.some((n) => n.news_key === item.news_key))
+          return;
+        // Remove placeholder if present
+        if (
+          state.rawNewsQueue.length === 0 &&
+          tickerTrack.querySelector(".ticker-item")?.textContent ===
+            "Waiting for news..."
+        ) {
+          tickerTrack.innerHTML = "";
+          const container = document.getElementById("ticker-container");
+          state.tickerOffset = container ? container.clientWidth : 0;
+        }
+        state.rawNewsQueue.push(item);
+        const oldWidth = tickerTrack.scrollWidth;
+        appendTickerElement(item);
+        const newWidth = tickerTrack.scrollWidth;
+        state.tickerOffset -= newWidth - oldWidth;
+        // Prevent excessive memory
+        if (state.rawNewsQueue.length > CONFIG.TICKER_MAX_ITEMS * 2) {
+          const removed = state.rawNewsQueue.shift();
+          const firstEl = tickerTrack.querySelector(".ticker-item");
+          if (firstEl) {
+            const sep = firstEl.nextElementSibling;
+            const w =
+              firstEl.getBoundingClientRect().width +
+              (sep ? sep.getBoundingClientRect().width : 0);
+            state.tickerOffset += w;
+            firstEl.remove();
+            if (sep) sep.remove();
+          }
+        }
+      }
+
+      function animateTicker() {
+        const track = tickerTrack;
+        const container = document.getElementById("ticker-container");
+        if (!track || !container) {
+          state.animationFrameId = requestAnimationFrame(animateTicker);
+          return;
+        }
+        if (track.children.length === 0) {
+          resetTicker();
+          state.animationFrameId = requestAnimationFrame(animateTicker);
+          return;
+        }
+
+        state.tickerOffset -= CONFIG.TICKER_SPEED;
+
+        const firstItem = track.querySelector(".ticker-item");
+        if (firstItem) {
+          const itemRight = firstItem.getBoundingClientRect().right;
+          const containerLeft = container.getBoundingClientRect().left;
+          if (itemRight < containerLeft) {
+            const itemWidth = firstItem.getBoundingClientRect().width;
+            const sep = firstItem.nextElementSibling;
+            const sepWidth = sep ? sep.getBoundingClientRect().width : 0;
+            const totalWidth = itemWidth + sepWidth;
+            state.tickerOffset += totalWidth;
+
+            // Remove from DOM
+            firstItem.remove();
+            if (sep) sep.remove();
+
+            // Remove from array
+            if (state.rawNewsQueue.length) {
+              const removed = state.rawNewsQueue.shift();
+              // If placeholder was removed, re-add one if queue becomes empty
+              if (
+                state.rawNewsQueue.length === 0 &&
+                removed.news_key !== "__waiting__"
+              ) {
+                const placeholder = {
+                  title: "Waiting for news...",
+                  news_key: "__waiting__",
+                };
+                state.rawNewsQueue.push(placeholder);
+                appendTickerElement(placeholder);
+              }
+            }
+          }
+        }
+
+        track.style.transform = `translateX(${state.tickerOffset}px)`;
+        state.animationFrameId = requestAnimationFrame(animateTicker);
+      }
+
+      // ---------- CLUSTERS ----------
+      function getClusterName(cluster) {
+        return cluster.news.length
+          ? truncate(cluster.news[0].title, 55)
+          : `Cluster #${cluster.id}`;
+      }
+
+      function addProcessedNews(item) {
+        if (!item || item.cluster_id == null) return;
+
+        if (state.processedKeys.has(item.news_key)) return;
+        state.processedKeys.add(item.news_key);
+
+        const cid = item.cluster_id;
+        if (!state.clusters.has(cid))
+          state.clusters.set(cid, { id: cid, news: [] });
+        const cluster = state.clusters.get(cid);
+
+        // Dedup by link
+        if (cluster.news.some((n) => n.link === item.link)) return;
+
+        cluster.news.unshift(item);
+        if (cluster.news.length > CONFIG.CLUSTER_INTERNAL_MAX)
+          cluster.news.pop();
+        cluster.name = getClusterName(cluster);
+
+        state.archiveRows.unshift(item);
+        if (state.archiveRows.length > CONFIG.ARCHIVE_MAX_ROWS)
+          state.archiveRows.pop();
+      }
+
+      function renderClusters() {
+        const sorted = [...state.clusters.values()].sort(
+          (a, b) => (b.news[0]?.timedate || 0) - (a.news[0]?.timedate || 0),
+        );
+        clustersDashboard.innerHTML = sorted
+          .map((cluster) => {
+            const preview = cluster.news.slice(
+              0,
+              CONFIG.CLUSTER_CARD_PREVIEW_COUNT,
+            );
+            return `<div class="cluster-card" data-cluster-id="${cluster.id}" onclick="openClusterModal(${cluster.id})">
+                    <div class="cluster-header">
+                        <span class="cluster-symbol">CLUSTER:${cluster.id} – ${truncate(cluster.name, 60)}</span>
+                        <span class="cluster-count">${cluster.news.length} news</span>
+                    </div>
+                    <ul class="cluster-news-list">${preview
+                      .map(
+                        (n) => `
+                        <li class="cluster-news-item">
+                            <span class="news-time">${formatTimeShort(n.timedate)}</span>
+                            <span class="news-title" title="${n.title || ""}"><a href="${n.link}" target="_blank" onclick="event.stopPropagation()">${truncate(n.title, 70)}</a></span>
+                        </li>`,
+                      )
+                      .join("")}</ul>
+                </div>`;
+          })
+          .join("");
+      }
+
+      function openClusterModal(id) {
+        const cluster = state.clusters.get(id);
+        if (!cluster) return;
+        modalDetails.innerHTML = `<h2 style="color:var(--accent);margin-bottom:16px;">CLST:${cluster.id} – ${cluster.name}</h2>
+                ${cluster.news
+                  .map(
+                    (n) => `<div class="modal-news-item">
+                    <div class="modal-news-title"><a href="${n.link}" target="_blank" style="color:var(--accent);">${n.title || "No title"}</a></div>
+                    <div class="modal-news-meta">${formatTimeFull(n.timedate)}</div>
+                    <div class="modal-news-summary">${n.summary || ""}</div>
+                </div>`,
+                  )
+                  .join("")}`;
+        modal.classList.remove("hidden");
+      }
+      function closeModal() {
+        modal.classList.add("hidden");
+      }
+      modalClose.addEventListener("click", closeModal);
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+
+      function renderArchive() {
+        archiveTableBody.innerHTML = state.archiveRows
+          .map(
+            (row) => `
+                <tr>
+                    <td>${formatTimeShort(row.timedate)}</td>
+                    <td>${truncate(row.title, 50)}</td>
+                    <td style="cursor:pointer;color:var(--accent);" onclick="document.querySelector('.cluster-card[data-cluster-id=&quot;${row.cluster_id}&quot;]')?.scrollIntoView({behavior:'smooth'})">${row.cluster_id}</td>
+                    <td><a class="archive-link" href="${row.link}" target="_blank">Link</a></td>
+                </tr>`,
+          )
+          .join("");
+      }
+
+      // ---------- PROCESSED WS QUEUE ----------
+      function enqueueProcessedNews(item) {
+        state.newsProcessingQueue.push(item);
+        if (!state.processingActive) {
+          state.processingActive = true;
+          processQueue();
+        }
+      }
+      function processQueue() {
+        if (!state.newsProcessingQueue.length) {
+          state.processingActive = false;
+          return;
+        }
+        const item = state.newsProcessingQueue.shift();
+        addProcessedNews(item);
+        renderClusters();
+        renderArchive();
+        setTimeout(processQueue, 0);
+      }
+
+      // ---------- SOURCES ----------
+      async function fetchSources() {
+        try {
+          const r = await fetch(`${CONFIG.API_BASE_URL}/sources?limit=200`);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          renderSources(await r.json());
+        } catch (e) {
+          console.error("Sources error:", e);
+          sourcesListDiv.innerHTML = "Error loading sources.";
+        }
+      }
+      function renderSources(sources) {
+        if (!sources?.length) {
+          sourcesListDiv.innerHTML = "No sources added.";
+          return;
+        }
+        sourcesListDiv.innerHTML = sources
+          .map(
+            (s) => `
+                <div class="source-item">
+                    <span class="enabled-dot ${s.is_enabled ? "" : "disabled"}"></span>
+                    <span class="source-url" title="${s.link}">${truncate(s.link, 50)}</span>
+                    <button class="delete-source-btn" data-link="${s.link}">✕</button>
+                </div>`,
+          )
+          .join("");
+        document.querySelectorAll(".delete-source-btn").forEach((b) =>
+          b.addEventListener("click", async (e) => {
+            await deleteSource(e.target.dataset.link);
+          }),
+        );
+      }
+      async function addSource(url) {
+        try {
+          await fetch(`${CONFIG.API_BASE_URL}/sources`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify([{ link: url, is_enabled: true }]),
+          });
+          await fetchSources();
+          newSourceInput.value = "";
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      async function deleteSource(link) {
+        try {
+          await fetch(`${CONFIG.API_BASE_URL}/sources`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify([{ link, is_enabled: false }]),
+          });
+          await fetchSources();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      addSourceBtn.addEventListener("click", () => {
+        const url = newSourceInput.value.trim();
+        if (url) addSource(url);
+      });
+
+      // ---------- WEBSOCKETS ----------
+      function updateWsStatus(type, status) {
+        const el = type === "news" ? wsNewsStatus : wsProcessedStatus;
+        el.className = "status-indicator";
+        if (status === "connected") el.classList.add("connected");
+        else if (status === "connecting") el.classList.add("connecting");
+      }
+      function connectWebSocket(url, onMessage, type) {
+        const ws = new WebSocket(url);
+        updateWsStatus(type, "connecting");
+        ws.onopen = () => updateWsStatus(type, "connected");
+        ws.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (state.initialLoadComplete) onMessage(data);
+          } catch (ex) {
+            console.error("WS msg error", ex);
+          }
+        };
+        ws.onclose = () => {
+          updateWsStatus(type, "disconnected");
+          if (!state.reconnectTimers[type]) {
+            state.reconnectTimers[type] = setTimeout(() => {
+              const newWs = connectWebSocket(url, onMessage, type);
+              if (type === "news") state.wsNews = newWs;
+              else state.wsProcessed = newWs;
+              delete state.reconnectTimers[type];
+            }, CONFIG.RECONNECT_DELAY);
+          }
+        };
+        ws.onerror = () => updateWsStatus(type, "disconnected");
+        return ws;
+      }
+      function handleNewsMessage(item) {
+        if (item?.cluster_id == null) addToTicker(item);
+        else enqueueProcessedNews(item);
+      }
+      function handleProcessedMessage(item) {
+        if (item?.cluster_id != null) enqueueProcessedNews(item);
+      }
+      function startWebSockets() {
+        if (state.wsNews) state.wsNews.close();
+        if (state.wsProcessed) state.wsProcessed.close();
+        Object.values(state.reconnectTimers).forEach(clearTimeout);
+        state.reconnectTimers = {};
+        state.wsNews = connectWebSocket(
+          CONFIG.WS_NEWS_URL,
+          handleNewsMessage,
+          "news",
+        );
+        state.wsProcessed = connectWebSocket(
+          CONFIG.WS_PROCESSED_URL,
+          handleProcessedMessage,
+          "processed",
+        );
+      }
+      reconnectBtn.addEventListener("click", () => {
+        CONFIG.WS_NEWS_URL = wsNewsInput.value.trim();
+        CONFIG.WS_PROCESSED_URL = wsProcessedInput.value.trim();
+        CONFIG.API_BASE_URL = apiBaseInput.value.trim();
+        state.initialLoadComplete = false;
+        state.clusters.clear();
+        state.archiveRows = [];
+        state.processedKeys.clear();
+        state.newsProcessingQueue = [];
+        state.rawNewsQueue = [];
+        resetTicker();
+        renderClusters();
+        renderArchive();
+        startWebSockets();
+        fetchSources();
+        loadInitialProcessedNews().then(() => {
+          state.initialLoadComplete = true;
+        });
+      });
+
+      // ---------- INITIAL LOAD ----------
+      async function loadInitialProcessedNews() {
+        try {
+          const resp = await fetch(
+            `${CONFIG.API_BASE_URL}/news?with_empty_cluster_id=false&newest_first=true&limit=${CONFIG.INITIAL_PROCESSED_LIMIT}`,
+          );
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          data.forEach((item) => addProcessedNews(item));
+          renderClusters();
+          renderArchive();
+        } catch (e) {
+          console.error("Initial processed news load failed:", e);
+        }
+      }
+
+      function init() {
+        wsNewsInput.value = CONFIG.WS_NEWS_URL;
+        wsProcessedInput.value = CONFIG.WS_PROCESSED_URL;
+        apiBaseInput.value = CONFIG.API_BASE_URL;
+
+        resetTicker(); // shows "Waiting for news..."
+        fetchSources();
+        loadInitialProcessedNews().then(() => {
+          state.initialLoadComplete = true;
+          startWebSockets();
+        });
+        state.animationFrameId = requestAnimationFrame(animateTicker);
+      }
+      window.addEventListener("load", init);
+    </script>
+  </body>
+</html>

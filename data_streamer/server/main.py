@@ -8,6 +8,7 @@ from datetime import datetime
 
 import redis.asyncio as redis
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from common_libs.async_utils import handle_exception
@@ -41,6 +42,7 @@ redis_host = os.environ.get("REDIS_HOST")
 redis_timeout = float(os.environ.get("REDIS_TIMEOUT"))
 max_used_sources_count = int(os.environ.get("MAX_USED_SOURCES_COUNT"))
 max_latest_news_count = int(os.environ.get("MAX_LATEST_NEWS_COUNT"))
+cors_origins = [s.strip() for s in os.environ.get("CORS_ORIGINS", "").split(",") if s.strip()]
 
 logger = logging.getLogger(__name__)
 cache = redis.Redis(
@@ -85,6 +87,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.websocket("/stream_news")
 async def websocket_news(websocket: WebSocket):
@@ -93,10 +103,6 @@ async def websocket_news(websocket: WebSocket):
     async with cache.pubsub() as pubsub:
         await pubsub.subscribe(redis_news_channel)
         try:
-            recent_news = await db.get_news_items(limit=max_latest_news_count)
-            for item in recent_news:
-                await websocket.send_text(item.model_dump_json())
-
             async for message in pubsub.listen():
                 if message["type"] == "message":
                     news_item_json = message["data"].decode("utf-8")
@@ -175,8 +181,13 @@ async def get_sources(limit: int = max_used_sources_count, offset: int = 0):
 
 
 @app.get("/news", response_model=list[NewsItemModel])
-async def get_news(limit: int = max_latest_news_count, offset: int = 0):
+async def get_news(
+    with_empty_cluster_id: bool,
+    newest_first: bool = True,
+    limit: int = max_latest_news_count,
+    offset: int = 0,
+):
     """
     Return news
     """
-    return await db.get_news_items(limit, offset)
+    return await db.get_news_items(limit, offset, with_empty_cluster_id, newest_first)

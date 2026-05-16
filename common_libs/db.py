@@ -40,7 +40,7 @@ class NewsItem(Base):
     __tablename__ = news_table_name
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, nullable=False)
-    news_key: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True)
+    news_key: Mapped[str] = mapped_column(String(2048), nullable=False, unique=True)
     title: Mapped[str] = mapped_column(String(1024), nullable=True)
     summary: Mapped[str] = mapped_column(String(4096), nullable=True)
     link: Mapped[str] = mapped_column(String(2048), nullable=False)
@@ -165,6 +165,10 @@ class Database:
                     if with_empty_cluster_id:
                         news_item_select_statement = news_item_select_statement.where(
                             NewsItem.cluster_id.is_(None)
+                        )
+                    else:
+                        news_item_select_statement = news_item_select_statement.where(
+                            NewsItem.cluster_id.is_not(None)
                         )
 
                     if newest_first:

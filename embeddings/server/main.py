@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from common_libs.async_utils import handle_exception
 from common_libs.news_clustering import NewsClustering
@@ -29,6 +30,7 @@ app_summary = os.environ.get("APP_SUMMARY")
 app_description = os.environ.get("APP_DESCRIPTION")
 app_version = os.environ.get("APP_VERSION")
 start_sleep = float(os.environ.get("START_SLEEP", 5))
+cors_origins = [s.strip() for s in os.environ.get("CORS_ORIGINS", "").split(",") if s.strip()]
 
 logger = logging.getLogger(__name__)
 news_clustering = NewsClustering()
@@ -58,6 +60,14 @@ app = FastAPI(
     description=app_description,
     version=app_version,
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
